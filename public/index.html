@@ -1,0 +1,298 @@
+<!doctype html>
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<script src="/socket.io/socket.io.js"></script>
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+
+<!-- JS, Popper.js, and jQuery -->
+<script
+              src="https://code.jquery.com/jquery-3.3.1.min.js"
+              integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+              crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+<style type="text/css">
+    td, th {
+    	border: 1px solid black;
+    }
+    table{
+    	width: 400px;
+    	height: 100px;
+    }
+    #game_update{
+      display: inline-block;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    #game_user{
+      float:right;
+      font-weight: bold;
+
+    }
+    #game_user_room{
+      float:right;
+      font-weight: bold;
+
+    }
+ </style>
+<script>
+
+	let socket="";
+	// function name(){
+	// 	return prompt("Please enter your name", "Harry Potter");
+	// }
+	let name="";
+  var game_started=false
+	function ask(){
+
+	name = prompt("What is your name?");
+  
+    if(name != null && isNaN(name) & name != ""){
+  	    
+    }else{
+      alert("Invalid name, please try again")
+      ask();
+    }
+}
+
+	ask();
+  	
+  	socket = io('http://localhost:3000/?name='+name);
+
+  socket.on('connect', () => {
+    socket.send('hi');
+
+    socket.on('message', (msg) => {
+      console.log("message " + msg)
+    });
+
+    socket.on('roommessage', (msg) => {
+      console.log("roommessage " + msg)
+    });
+
+    socket.on('nsmessage', (msg) => {
+      if(msg.action=="roomlist"){
+      	console.log("nsmessage is  "+msg.action);
+         $("#game_user_room").text("you are user "+name);
+      	 addRoomsToTableRows(msg.data);
+
+      }else if(msg.action=="joinroomrequest"){
+        if(msg.success){
+          $("#game_user").text("you are user "+name);
+      	 createTab(msg.data.name, msg.data.id, true);
+        }else{
+          console.log("failed to join room");
+        }
+      }
+      else if(msg.action=="leaveroomrequest"){
+      	removeTab(msg.data.id);
+      }
+      else if(msg.action=="game_win"){
+        alert(msg.msg);
+      }
+      else if(msg.action=="game_end"){
+        alert(msg.msg);
+        $("#start_game_btn").show();
+        $("#end_game_btn").hide();
+        $("#play_turn_btn").hide();
+        $("#game_update").text(msg.msg);
+      }
+      else if(msg.action=="not_your_turn"){
+       // console.log(msg.msg);
+        $("#game_update").hide();
+          $("#game_update").text(msg.msg);
+          $("#game_update").fadeIn(1000);
+      }
+      else if(msg.action=="game_started"){
+        console.log(msg.msg);
+          game_started=true;
+          $("#game_update").hide();
+          $("#game_update").text(msg.msg);
+          $("#game_update").fadeIn(1000);
+          $("#start_game_btn").hide();
+          $("#end_game_btn").show();
+          $("#play_turn_btn").show();
+          
+      }
+      
+      
+      else{
+      	console.log("in else"+msg.action +" data is"+msg.msg);
+      }
+      
+    });
+
+    socket.on('createroomrequest', (msg) => {
+      console.log("roommessage " + msg)
+      
+    });
+
+    socket.on("roomuserlist", (msg)=>{
+    	addUsersToRoomTableRows(msg)
+    });
+
+  });
+
+  
+  function joinButtonAction(id){
+  	joinroom(id);
+  }
+  function leaveButtonAction(id){
+  	leaveroom(id);
+  }
+
+  function addUsersToRoomTableRows(users){
+  	
+  	$('#roomusersbody').html("");
+
+  	 for (let [index, user] of Object.entries(users)) {
+  	 	var row ="<tr style='background-color:#9da;' id='row-tab-"+user.id+ "'>\
+ 				<th scope='row'>"+user.id+"</th>\
+      			<td>"+user.name+"</td> \
+	      	    <td>"+user.last_turn+"</td>	\
+	      	    <td>"+user.total_score+"</td>	\
+	      	    </tr>";
+
+        if(user.last_turn_user==true){
+        $("#game_update").hide();
+          $("#game_update").text("User "+user.name +" played last and Got "+ user.last_turn);
+
+          $("#game_update").fadeIn(1000);
+
+          var rrr=user.id;
+        }
+
+
+        $('#roomusersbody').append(row);
+    	}
+
+      $("#row-tab-"+rrr).hide().fadeIn(1000).delay(2000).animate({
+        backgroundColor: "#f9daff"
+        }, 2000);
+
+  	 }
+
+  function addRoomsToTableRows(rooms){
+  	 $('#roomlistbody').html("");
+
+  	 for (let [index, room] of Object.entries(rooms)) {
+
+  	 	var row ="<tr>\
+ 				<th scope='row'>"+room.id+"</th>\
+      			<td>"+room.name+"</td> \
+	      	<td>"+room.userscount+"</td>";
+      	if(room.isjoined==true){
+      		row+="<td><button type='button' class='btn btn-primary' onclick=leaveButtonAction('"+(room.id)+"') >leave Room</button></td>\
+    	</tr>";
+    	//createTab(room.name, room.id, false);
+
+      	}else{
+      		row+="<td><button type='button' class='btn btn-primary' onclick=joinButtonAction('"+(room.id)+"') >Join Room</button></td>\
+    	</tr>"
+      	}
+      	
+
+    	$('#roomlistbody').append(row);
+  		};
+  }
+
+
+ function joinroom(id){
+    	socket.emit("joinroomrequest", {'msg':"let me join room", 'id':id});
+ }
+
+ function leaveroom(id){
+    	socket.emit("leaveroomrequest", {'msg':"let me leave room", 'id':id});
+ }
+
+ function createroom(){
+    	socket.emit("createroomrequest", "let me create room");
+ }
+
+ function userturn(){
+    	socket.emit("userturn", "let me play");
+ }
+ function startgame(){
+
+    	socket.emit("startgame", {'msg':"let me start game"});
+ }
+ function endgame(){
+      socket.emit("endgame", {'msg':"let me start game"});
+ }
+
+ function createTab(roomname, id, show){
+ 	
+ 	$("#myTab").append(" <li class='nav-item' id='tab-"+id+"' >\
+    	<a class='nav-link' id='room-"+id+"-tab' data-toggle='tab' href='#room-"+id+"' role='tab' aria-controls='room-"+id+"' aria-selected='false'>"+roomname+"</a>\
+  </li>");
+
+ 	if(show==true){
+ 		$("#myTab a[href='#room-"+id+"']").tab('show');
+ 	}
+
+ }
+ function removeTab(id){
+ 	$("#myTab #tab-"+id).remove();
+ }
+    
+
+</script>
+<body>
+
+
+<ul class="nav nav-tabs" id="myTab" role="tablist">
+  <li class="nav-item">
+    <a class="nav-link active" id="home-tab" data-toggle="tab" href="#home" role="tab" aria-controls="home" aria-selected="true">Home</a>
+  </li>
+</ul>
+<div class="tab-content" id="myTabContent">
+  	<div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
+	  	<div id="rooms">	
+		<button onclick=createroom() >Create room</button>
+    <div id="game_user_room"></div>
+		<div id="roomlist">
+			<table class="table ">
+			  <thead>
+			    <tr>
+			      <th scope="col">#</th>
+			      <th scope="col">Name</th>
+			      <th scope="col">Users</th>
+			      <th scope="col">Action</th>
+			    </tr>
+			  </thead>
+			  <tbody id="roomlistbody">
+			  </tbody>
+			</table>
+		</div>
+	</div>
+  </div>
+  <div class="tab-pane fade show" id="room-1" role="tabpanel" aria-labelledby="room-1-tab">
+	  	<div id="room1">	
+		<button onclick=startgame() id="start_game_btn">start game</button>
+    <button onclick=endgame() id="end_game_btn" style="display: none" >end game</button>
+		<button onclick=userturn() id="play_turn_btn" style="display: none" >Play your turn</button>
+    <div id="game_update"> Game Yet to start</div>
+    <div id="game_user"></div>
+		<div id="room1">
+			<table class="table ">
+			  <thead>
+			    <tr>
+			      <th scope="col">#</th>
+			      <th scope="col">Name</th>
+			      <th scope="col">Last Turn</th>
+			      <th scope="col">Total Sum</th>
+			    </tr>
+			  </thead>
+			  <tbody id="roomusersbody">
+			  </tbody>
+			</table>
+		</div>
+	</div>
+  </div>
+</div>
+
+
+<div id="norooms"></div>
+
+</body>
+</html>

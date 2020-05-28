@@ -7,11 +7,16 @@ var logger = require('morgan');
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 
+const io = require('socket.io')();
+
+var namespace = require('./src/Namespace');
+
 var app = express();
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
+
 
 app.use(logger('dev'));
 app.use(express.json());
@@ -37,5 +42,15 @@ app.use(function(err, req, res, next) {
   res.status(err.status || 500);
   res.render('error');
 });
+
+var connected=0;
+var roomjoined=0;
+var roomname="room1";
+var roomuser=[];
+var currentindex=0;
+app.set('io', io);
+
+var ns = new namespace("/", "Main Namespace", io);
+io.of(ns.endpoint).on('connection', ns.onUserConnection);
 
 module.exports = app;
